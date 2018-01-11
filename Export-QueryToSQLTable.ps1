@@ -78,6 +78,43 @@
             -SaveResultsTruncateBeforeSave: $false
 
 .EXAMPLE
+    #Save results of sp_WhoIsActive to a table
+
+    [string] $saveToInstance = '<YOUR_INSTANCE_NAME>'
+    [string] $runOnInstance = '<YOUR_INSTANCE_NAME>'
+
+    $saveToInstance = 'DESKTOP-UBBP7PP\SQL2016'
+    $runOnInstance = 'DESKTOP-UBBP7PP\SQL2016'
+
+    [string] $saveToDatabase = 'TEST'
+    [string] $saveToSchema = 'dbo'
+
+    $query1 = New-Object -TypeName PSObject
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 1
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'sp_WhoIsActiveInfo'
+    $query1 | Add-Member -MemberType NoteProperty -Name Query -Value 'EXEC sp_WhoIsActive @show_own_spid  = 1'
+    $query1 | Add-Member -MemberType NoteProperty -Name Description -Value 'Gets connected users/sessions'
+    $query1 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $false
+
+    #...These two queries were built above
+    $queries = @($query1)
+
+    #Now $queries can be passed into the function call
+    $output = Export-QueryToSQLTable `
+            -Queries $queries `
+            -RunOnInstances @($runOnInstance) `
+            -RunIncludeDBs @() `
+            -RunExcludeDBs @() `
+            -RunExcludeAllSystemDBs: $true `
+            -RunExcludeAllUserDBs: $false `
+            -RunOnDBsWithOwner @() `
+            -RunOnDBsWithStatus @('Normal') `
+            -SaveResultsToInstance $saveToInstance `
+            -SaveResultsToDatabase $saveToDatabase `
+            -SaveResultsToSchema $saveToSchema `
+            -SaveResultsTruncateBeforeSave: $false
+
+.EXAMPLE
 
     #This is a real-world example of how to setup a script, save it as a .ps1 file and kick off from 
     # SQL agent as a cmdline script or from the windows scheduler
@@ -233,6 +270,106 @@
             -SaveResultsToDatabase '' `
             -SaveResultsToSchema '' `
             -SaveResultsTruncateBeforeSave: $false
+
+.EXAMPLE
+
+    #This example saves the sp_Blitz output to tables
+    Import-Module dbatools
+
+    . D:\PowerShell\Export-DMVInformation.ps1
+    . D:\PowerShell\Export-QueryToSQLTable.ps1
+
+    [string] $saveToInstance = '<YOUR_INSTANCE_NAME>'
+    [string] $runOnInstance = '<YOUR_INSTANCE_NAME>'
+    [string] $saveToDatabase = 'DBAUtil'
+    [string] $saveToSchema = 'dbo'
+
+    $query1 = New-Object -TypeName PSObject
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 1
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'Blitz_Detailed'
+    $query1 | Add-Member -MemberType NoteProperty -Name Query -Value 'EXEC DBAUtil.dbo.sp_Blitz @bringthepain = 1'
+    $query1 | Add-Member -MemberType NoteProperty -Name Description -Value 'General recommendations based on instance/database settings'
+    $query1 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $false
+
+    $query2 = New-Object -TypeName PSObject
+    $query2 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 2
+    $query2 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'Blitz_Summary'
+    $query2 | Add-Member -MemberType NoteProperty -Name Query -Value 'EXEC DBAUtil.dbo.sp_Blitz @summarymode = 1'
+    $query2 | Add-Member -MemberType NoteProperty -Name Description -Value 'General recommendations summary based on instance/database settings'
+    $query2 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $false
+
+
+    #...These two queries were built above
+    [PSObject[]] $queries = @($query1, $query2)
+
+
+    #Now $queries can be passed into the function call
+    $output = Export-QueryToSQLTable `
+            -Queries $queries `
+            -RunOnInstances @($runOnInstance) `
+            -RunIncludeDBs @() `
+            -RunExcludeDBs @() `
+            -RunExcludeAllSystemDBs: $true `
+            -RunExcludeAllUserDBs: $false `
+            -RunOnDBsWithOwner @() `
+            -RunOnDBsWithStatus @('Normal') `
+            -SaveResultsToInstance $saveToInstance `
+            -SaveResultsToDatabase $saveToDatabase `
+            -SaveResultsToSchema $saveToSchema `
+            -SaveResultsTruncateBeforeSave: $true `
+            -CreateOutputTableWarningAction 'Continue'
+
+.EXAMPLE
+
+    #This examples show how to run your own custom queries and save the output to tables
+
+    Import-Module dbatools
+
+    . D:\PowerShell\Export-DMVInformation.ps1
+    . D:\PowerShell\Export-QueryToSQLTable.ps1
+
+
+    [string] $saveToInstance = '<YOUR_INSTANCE_NAME>'
+    [string] $runOnInstance = '<YOUR_INSTANCE_NAME>'
+    [string] $saveToDatabase = 'DBAUtil'
+    [string] $saveToSchema = 'dbo'
+
+
+    $query1 = New-Object -TypeName PSObject
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 1
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'Log space usage'
+    $query1 | Add-Member -MemberType NoteProperty -Name Query -Value 'select * from sys.dm_db_log_space_usage'
+    $query1 | Add-Member -MemberType NoteProperty -Name Description -Value 'Gets log space usage for specific database (being run against)'
+    $query1 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $true
+
+    $query2 = New-Object -TypeName PSObject
+    $query2 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 2
+    $query2 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'Misc_001_OS_Performance_Counters'
+    $query2 | Add-Member -MemberType NoteProperty -Name Query -Value (Get-Content -LiteralPath "D:\Queries\OSPerformanceCounters.sql" | Out-String)
+    $query2 | Add-Member -MemberType NoteProperty -Name Description -Value 'OS Performance counters'
+    $query2 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $false
+
+    #...These two queries were built above
+    [PSObject[]] $queries = @($query1, $query2)
+
+
+    #Now $queries can be passed into the function call
+    $output = Export-QueryToSQLTable `
+            -RunOnInstanceSqlCredential $runOnInstanceSqlCredential `
+            -SaveToInstanceSqlCredential $saveToInstanceSqlCredential `
+            -Queries $queries `
+            -RunOnInstances @($runOnInstance) `
+            -RunIncludeDBs @() `
+            -RunExcludeDBs @() `
+            -RunExcludeAllSystemDBs: $true `
+            -RunExcludeAllUserDBs: $false `
+            -RunOnDBsWithOwner @() `
+            -RunOnDBsWithStatus @('Normal') `
+            -SaveResultsToInstance $saveToInstance `
+            -SaveResultsToDatabase $saveToDatabase `
+            -SaveResultsToSchema $saveToSchema `
+            -SaveResultsTruncateBeforeSave: $false `
+            -CreateOutputTableWarningAction 'Continue'
   
 .NOTES 
     
