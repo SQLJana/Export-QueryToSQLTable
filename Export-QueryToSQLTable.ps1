@@ -91,8 +91,8 @@
 
     $query1 = New-Object -TypeName PSObject
     $query1 | Add-Member -MemberType NoteProperty -Name QueryNr -Value 1
-    $query1 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'sp_WhoIsActiveInfo'
-    $query1 | Add-Member -MemberType NoteProperty -Name Query -Value 'EXEC sp_WhoIsActive @show_own_spid  = 1'
+    $query1 | Add-Member -MemberType NoteProperty -Name QueryTitle -Value 'sp_WhoIsActiveInfo3'
+    $query1 | Add-Member -MemberType NoteProperty -Name Query -Value 'EXEC sp_whoisActive @show_sleeping_spids  =1, @get_plans =1, @show_own_spid = 1'
     $query1 | Add-Member -MemberType NoteProperty -Name Description -Value 'Gets connected users/sessions'
     $query1 | Add-Member -MemberType NoteProperty -Name DBSpecific -Value $false
 
@@ -712,13 +712,43 @@ function Export-QueryToSQLTable
                                                         @{Label="CaptureDate";Expression={Get-Date}},
                                                         *
 
-                            $stepName = "Convert from object array to DataTable"
-                            #--------------------------------------------        
-                            $dataTableWAddlCols = $resultsWAddlCols | 
+                            $stepName = "Select only the columns already in the target table and ignore extra columns (if table exists): [{0}]" -f $saveToTableName
+                            #--------------------------------------------                                        
+                            #This will ensure that the function has the most compatibility when there are slight column variations in SQL statements 
+
+                            $sql = "SELECT name FROM sys.columns WHERE object_id = OBJECT_ID('{0}.{1}') " -f $saveToSchemaName, $saveToTableName
+
+                            #Splat inputs (except SQL) and run the sql
+                            $invokeParams = @{ 
+                                                ServerInstance = $saveToInstanceName                                                     
+                                                Database = $saveToDatabaseName 
+                                                QueryTimeout = $QueryTimeout
+                                                ConnectionTimeout = $ConnectionTimeout
+                                                As = "PSObject" 
+                                            }
+                            if ($SaveToInstanceSqlCredential) {$invokeParams.Add('Credential', $SaveToInstanceSqlCredential)}
+
+                            $dataTable = Invoke-DBASqlcmd @invokeParams -Query $sql
+
+                            if ($dataTable -ne $NULL)
+                            {
+                                $colsAlreadyInTable = ($dataTable | Select-Object -ExpandProperty name)
+
+                                $dataTableWAddlCols = $resultsWAddlCols | 
+                                                    Select-Object $colsAlreadyInTable |
+                                                    Out-DbaDataTable `
+                                                        -WarningAction: SilentlyContinue #Supress warnings about columns whose datatypes cannot be converted
+                            }
+                            else
+                            {
+                                $stepName = "Convert from object array to DataTable"
+                                #--------------------------------------------        
+                                $dataTableWAddlCols = $resultsWAddlCols | 
                                                     Out-DbaDataTable `
                                                         -WarningAction: SilentlyContinue #Supress warnings about columns whose datatypes cannot be converted
 
-
+                            }
+                            
 
                             $stepName = "Saving to: [{0}.{1}]" -f $saveToSchemaName, $saveToTableName
                             #--------------------------------------------        
@@ -749,10 +779,12 @@ function Export-QueryToSQLTable
                                 $stepName = "Check if PK exists on: [{0}]" -f $saveToTableName
                                 #--------------------------------------------                                        
 
+                                #Will have issues if the input schema/table name has enclosing square brackets!
                                 $sql = "SELECT 1
                                             FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
                                             WHERE OBJECTPROPERTY(OBJECT_ID(CONSTRAINT_SCHEMA + '.' + QUOTENAME(CONSTRAINT_NAME)), 'IsPrimaryKey') = 1
-                                            AND TABLE_NAME = '{0}' AND TABLE_SCHEMA = '{1}'" -f $saveToTableName, $saveToSchemaName
+                                            AND EXISTS 
+											(SELECT 1 FROM sys.tables t WHERE schema_name(t.schema_id) = TABLE_SCHEMA AND t.name = TABLE_NAME AND t.object_id = OBJECT_ID('{0}.{1}' ) " -f $saveToSchemaName, $saveToTableName
 
                                 #Splat inputs (except SQL) and run the sql
                                 $invokeParams = @{ 
@@ -767,7 +799,7 @@ function Export-QueryToSQLTable
                                 $dataTable = Invoke-DBASqlcmd @invokeParams -Query $sql
 
                                                                 
-                                if ($dataTable.Count -eq 0)
+                                if ($dataTable -eq $null)
                                 {
                                     
                                     #We need to create a PK on the table else subsequent Write-DbaDataTable will not APPEND data if it is still a HEAP 
