@@ -660,7 +660,7 @@ function Export-QueryToSQLTable
                                     }
                     if ($RunOnInstanceSqlCredential) {$invokeParams.Add('Credential', $RunOnInstanceSqlCredential)}
 
-                    $dataTable = Invoke-DBASqlcmd @invokeParams
+                    $dataTable = Invoke-Sqlcmd2 @invokeParams
 
                     $rowCount = 0
                     if ($dataTable -ne $null)
@@ -796,7 +796,7 @@ function Export-QueryToSQLTable
                                                 }
                                 if ($SaveToInstanceSqlCredential) {$invokeParams.Add('Credential', $SaveToInstanceSqlCredential)}
 
-                                $dataTable = Invoke-DBASqlcmd @invokeParams -Query $sql
+                                $dataTable = Invoke-Sqlcmd2 @invokeParams -Query $sql
 
                                                                 
                                 if ($dataTable -eq $null)
@@ -817,7 +817,7 @@ function Export-QueryToSQLTable
                                                     ))
                                     {
                                         #Run using the same spalt values as above (only SQL is different)
-                                        $dataTable = Invoke-DBASqlcmd @invokeParams -Query $sql
+                                        $dataTable = Invoke-Sqlcmd2 @invokeParams -Query $sql
                                     }
                                 }
 
