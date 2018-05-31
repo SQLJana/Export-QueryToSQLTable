@@ -728,7 +728,7 @@ function Export-QueryToSQLTable
                                             }
                             if ($SaveToInstanceSqlCredential) {$invokeParams.Add('Credential', $SaveToInstanceSqlCredential)}
 
-                            $dataTable = Invoke-DBASqlcmd @invokeParams -Query $sql
+                            $dataTable = Invoke-SqlCmd2 @invokeParams -Query $sql
 
                             if ($dataTable -ne $NULL)
                             {
