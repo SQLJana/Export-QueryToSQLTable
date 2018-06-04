@@ -500,6 +500,7 @@ function Export-QueryToSQLTable
         foreach($runOnInstance in $RunOnInstances)
         {
             $instanceCounter++
+	    $queryCounter = 0
             $specificDatabases = @()
 
             Write-Progress -Activity "Instances progress:" `
